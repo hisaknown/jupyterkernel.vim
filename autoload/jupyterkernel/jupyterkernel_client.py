@@ -45,7 +45,11 @@ class JupyterKernelGatewayHandler(threading.Thread):
             logger.debug('Port {} found for Jupyter'.format(self._args.jupyter_port))
             logger.debug('Launch Jupyter kernel gateway')
             self.jkg_p = subprocess.Popen(
-                'jupyter kernelgateway --port {}'.format(self._args.jupyter_port),
+                ['jupyter',
+                 'kernelgateway',
+                 '--port',
+                 '{}'.format(self._args.jupyter_port),
+                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
