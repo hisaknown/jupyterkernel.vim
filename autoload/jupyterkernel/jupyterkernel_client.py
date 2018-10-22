@@ -104,6 +104,7 @@ class KernelHandler(threading.Thread):
         self.bufnr = bufnr
         self.lang = lang
         self.vim_messenger = vim_messenger
+        self._write_completed = threading.Event()
 
     def run(self):
         # Get kernel
@@ -187,13 +188,16 @@ class KernelHandler(threading.Thread):
             msg_type = msg['msg_type']
             print('Received message type:', msg_type)
             pprint(msg)
-            msg_bytes = (json_encode(msg) + '@@@').encode('utf-8')
+            msg = (json_encode(msg) + '@@@').encode('utf-8')
             # Send result to vim
             self.vim_messenger.ioloop.add_callback(
                 lambda: self.vim_messenger.tcp_server.stream.write(
-                    msg_bytes,
+                    msg,
+                    lambda: self._write_completed.set()
                 )
             )
+            self._write_completed.wait()
+            self._write_completed.clear()
 
         self.ws.close()
         logger.debug('Closed kernel {} websocket'.format(self.kernel_id))
