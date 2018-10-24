@@ -21,11 +21,11 @@ command! -nargs=* JupyterKernelConnect call s:connect('<args>')
 function! s:connect(args) abort
     if a:args == ''
         call jupyterkernel#start_jkg()
-        call timer_start(50, {timer -> s:start_kernel(timer, v:none)}, {'repeat': -1})
+        call timer_start(50, {timer -> s:start_kernel(timer, v:null)}, {'repeat': -1})
     else
         " Check args
         let l:args = split(a:args)
-        let l:bufnr = v:none
+        let l:bufnr = v:null
         for l:a in l:args
             if stridx(l:a, ':') != -1 " Is address:port?
                 let l:address_port = l:a
@@ -53,7 +53,7 @@ function! s:connect(args) abort
 endfunction
 
 function! s:start_kernel(timer, bufnr, ...)
-    if a:bufnr != v:none
+    if a:bufnr != v:null
         let l:ch = getbufvar(a:bufnr, 'jupyterkernel_ch', 0)
         let l:ch_exists = type(l:ch) == v:t_channel
     else
