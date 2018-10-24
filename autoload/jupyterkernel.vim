@@ -90,8 +90,7 @@ function! s:handle_result(ch, msg) abort
                 let l:output = insert(l:output, 'Out [' . l:msg_dict['content']['execution_count'] . ']:')
                 let l:output = add(l:output, '```')
                 " Put output
-                call appendbufline(
-                            \ l:msg_dict['bufnr'],
+                call append(
                             \ l:code_end_line,
                             \ l:output,
                             \ )
@@ -126,8 +125,7 @@ function! s:handle_result(ch, msg) abort
                     let l:output = add(l:output, '```')
                 endif
                 " Put output
-                call appendbufline(
-                            \ l:msg_dict['bufnr'],
+                call append(
                             \ l:code_end_line,
                             \ l:output
                             \ )
