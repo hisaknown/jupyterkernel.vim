@@ -156,7 +156,7 @@ class KernelHandler(threading.Thread):
                     ),
                     auth_username='fakeuser',
                     auth_password='fakepass',
-                    request_timeout=0.5,
+                    request_timeout=5,
                 )
                 self.ws = yield websocket_connect(ws_req)
                 break
