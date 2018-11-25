@@ -295,6 +295,9 @@ function! jupyterkernel#send_inside_codefence() abort
         " Adjust line number
         let l:line_start += 1
         let l:line_end += 1
+    elseif search('<!--.*-->', 'bnW') == l:line_start - 1
+        " Set new metadata
+        call setline(l:line_start - 1, 'In [ ]: <!-- -->')
     endif
     let l:meta = json_encode({
                 \'msg_id': l:msg_id,
