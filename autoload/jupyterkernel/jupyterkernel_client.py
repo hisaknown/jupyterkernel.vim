@@ -19,6 +19,7 @@ import threading
 from pprint import pprint
 import psutil
 from time import sleep
+import itertools
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -211,6 +212,13 @@ class KernelHandler(threading.Thread):
                 if len(split_str) == 1:
                     split_str = split_str[0]
                 msg_dict[k] = split_str
+            elif type(msg_dict[k]) is list:
+                if all([type(i) is str for i in msg_dict[k]]):
+                    msg_dict[k] = list(
+                        itertools.chain.from_iterable(
+                            [s.splitlines() for s in msg_dict[k]]
+                        )
+                    )
             elif type(msg_dict[k]) is dict:
                 KernelHandler.split_by_nl(msg_dict[k])
 
