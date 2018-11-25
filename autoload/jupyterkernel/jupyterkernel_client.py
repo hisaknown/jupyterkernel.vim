@@ -33,6 +33,7 @@ class JupyterKernelGatewayHandler(threading.Thread):
         self.vim_messenger = None
         self.kernel_threads = []
         self.kill = threading.Event()
+        self.ready = threading.Event()
 
     def run(self):
         # Start Jupyter if the port is not specified
@@ -54,6 +55,7 @@ class JupyterKernelGatewayHandler(threading.Thread):
                 stderr=subprocess.DEVNULL,
             )
         self.jupyter_port = self._args.jupyter_port
+        self.ready.set()
 
         # URLs
         self.base_url = 'http://' + self._args.jupyter_address + ':' + str(self.jupyter_port)
@@ -323,6 +325,7 @@ def main():
 
     # Start threads
     jkg_handle_thread.start()
+    jkg_handle_thread.ready.wait()  # Wait until Jupyter starts up
     vim_messenger_thread.start()
 
     # Wait for SIGINT
