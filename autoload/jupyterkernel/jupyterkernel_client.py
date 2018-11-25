@@ -152,6 +152,7 @@ class KernelHandler(threading.Thread):
         # Connect websocket
         while 1:
             try:
+                # Sometimes it takes a long time to get websocket...
                 ws_req = HTTPRequest(
                     url='{}/api/kernels/{}/channels'.format(
                         self.base_ws_url,
@@ -159,11 +160,13 @@ class KernelHandler(threading.Thread):
                     ),
                     auth_username='fakeuser',
                     auth_password='fakepass',
-                    request_timeout=5,
+                    connect_timeout=1,
+                    request_timeout=20,
                 )
                 self.ws = yield websocket_connect(ws_req)
                 break
             except HTTPTimeoutError:
+                logger.debug('Connecttion to kernel {} websocket timed out. Retrying.'.format(self.kernel_id))
                 pass
         logger.debug('Connected to kernel {} websocket'.format(self.kernel_id))
         # Notify vim that kernel is ready
