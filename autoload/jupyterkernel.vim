@@ -23,7 +23,8 @@ function! jupyterkernel#start_jkg(...) abort
                         \ 'import socket;' .
                         \ 's = socket.socket();' .
                         \ 's.bind(("' . g:jupyterkernel_address . '", ' . g:jupyterkernel_port . '));' .
-                        \ 'vim.vars["jupyterkernel_port"] = s.getsockname()[1]'
+                        \ 'vim.vars["jupyterkernel_port"] = s.getsockname()[1];' .
+                        \ 's.close()'
                         \ )
         endif
         if !exists('g:jupyterkernel_job') || job_status(g:jupyterkernel_job) != 'run'
