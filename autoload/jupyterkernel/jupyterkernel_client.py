@@ -54,6 +54,19 @@ class JupyterKernelGatewayHandler(threading.Thread):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            # Wait till the Jupyter is ready
+            while 1:
+                sleep(0.5)
+                try:
+                    client = HTTPClient()
+                    res = client.fetch(
+                        '{}/api'.format('http://' + self._args.jupyter_address
+                                        + ':' + str(self._args.jupyter_port)),
+                    )
+                    logger.debug(json_decode(res.body))
+                    break
+                except (HTTPTimeoutError, ConnectionRefusedError):
+                    pass
         self.jupyter_port = self._args.jupyter_port
         self.ready.set()
 
