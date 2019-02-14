@@ -270,7 +270,7 @@ function! s:set_winbar_status(bufnr) abort
     call setbufvar(a:bufnr, 'jupyterkernel_winbar_status', l:str)
 endfunction
 
-function! jupyterkernel#send_inside_codefence() abort
+function! jupyterkernel#get_around_codefence() abort
     let l:line_start = search('^```.\+$', 'bnW')
     let l:line_end = search('^```$', 'nW')
     " Check if there is code fence
@@ -281,11 +281,28 @@ function! jupyterkernel#send_inside_codefence() abort
     " Check if cursor is in a code block
     if search('^```', 'bnW') != l:line_start || search('^```', 'nW') != l:line_end
         echo 'Out of code fence!'
-        return
+        return 1
     endif
 
+    let l:dict = {
+                \ 'line_start': l:line_start,
+                \ 'line_end': l:line_end,
+                \ 'content': getline(l:line_start, l:line_end),
+                \ }
+
+    return l:dict
+endfunction
+
+function! jupyterkernel#send_inside_codefence() abort
     " Get code
-    let l:matched_text = getline(l:line_start, l:line_end)
+    let l:code = jupyterkernel#get_around_codefence()
+    if type(l:code) != v:t_dict
+        return
+    endif
+    let l:matched_text = l:code['content']
+    let l:line_start = l:code['line_start']
+    let l:line_end = l:code['line_end']
+
     " Get new (and unique) msg_id
     let l:msg_id = s:issue_msg_id()
 
