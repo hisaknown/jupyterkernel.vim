@@ -120,7 +120,6 @@ function! s:handle_result(ch, msg) abort
                     let l:output = l:msg_dict['content']['text']
                 elseif l:msg_dict['msg_type'] == 'error'
                     let l:output = l:msg_dict['content']['traceback']
-                    echomsg string(l:output)
                 endif
                 " Add code fence
                 if type(l:output) == v:t_string
