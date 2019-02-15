@@ -282,6 +282,28 @@ class VimMessenger(threading.Thread):
                                 'buffers': {}
                             }))
                         )
+                    elif data['type'] == 'complete':
+                        # Execute on kernel
+                        kernel_thread = self.jkg_handler.find_kernel_thread_by_id(data['kernel_id'])
+                        kernel_thread.ioloop.add_callback(
+                            lambda: kernel_thread.ws.write_message(json_encode({
+                                'header': {
+                                    'username': '',
+                                    'version': '5.0',
+                                    'session': '',
+                                    'msg_id': data['msg_id'],
+                                    'msg_type': 'complete_request'
+                                },
+                                'parent_header': {},
+                                'channel': 'shell',
+                                'content': {
+                                    'code': data['code'],
+                                    'cursor_pos': data['cursor_pos']
+                                },
+                                'metadata': {},
+                                'buffers': {}
+                            }))
+                        )
                 except StreamClosedError:
                     break
 

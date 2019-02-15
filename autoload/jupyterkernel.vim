@@ -154,6 +154,23 @@ function! s:handle_result(ch, msg) abort
             elseif l:msg_dict['msg_type'] == 'kernel_id'
                 " Save kernel id
                 call setbufvar(l:msg_dict['bufnr'], 'jupyterkernel_kernel_id', l:msg_dict['kernel_id'])
+            elseif l:msg_dict['msg_type'] == 'complete_reply'
+                " Find the head of the current word
+                let l:line = getline('.')
+                let l:start = col('.') - 1
+                while l:start > 0 && l:line[l:start - 1] =~ '\a'
+                    let l:start -= 1
+                endwhile
+                " Set completion candidates
+                let l:candidates = []
+                for l:i in range(len(l:msg_dict['content']['matches']))
+                    call add(l:candidates, {
+                                \ 'word': l:msg_dict['content']['matches'][i],
+                                \ 'menu': l:msg_dict['content']['metadata']['_jupyter_types_experimental'][i]['type']})
+                endfor
+                if !complete_check() && mode() == 'i'
+                    call complete(l:start + 1, l:candidates)
+                endif
             endif
             " Apply state info
             call setbufvar(l:msg_dict['bufnr'], 'jupyterkernel_status', temp_state)
@@ -217,6 +234,7 @@ function! jupyterkernel#connect_kernel(...) abort
     if &filetype != 'markdown'
         setlocal filetype=markdown
     endif
+    setlocal omnifunc=jupyterkernel#complete
     autocmd BufWinLeave <buffer> call jupyterkernel#kill_kernel(getbufvar(str2nr(expand('<abuf>')), 'jupyterkernel_kernel_id'), str2nr(expand('<abuf>')))
 endfunction
 
@@ -358,6 +376,49 @@ function! jupyterkernel#send_inside_codefence() abort
     call ch_sendraw(l:ch,
                 \  json_encode(l:dict) . '@@@'
                 \ )
+endfunction
+
+function! jupyterkernel#complete(findstart, base) abort
+    if a:findstart
+	    return -4
+    endif
+
+    " Get code
+    let l:code = jupyterkernel#get_around_codefence()
+    if type(l:code) != v:t_dict
+        return
+    endif
+    let l:matched_text = l:code['content']
+    let l:line_start = l:code['line_start']
+
+    " Get new (and unique) msg_id
+    let l:msg_id = s:issue_msg_id()
+
+    " Extract cursor position
+    let l:curpos = 0
+    for l:s in l:matched_text[1:(line('.') - l:line_start - 1)]
+        let l:curpos += strlen(l:s) + 1
+    endfor
+    let l:curpos += col('.') - 1
+
+    let l:dict = {
+                \ 'type': 'complete',
+                \ 'kernel_id': b:jupyterkernel_kernel_id,
+                \ 'code': join(l:matched_text[1:-2], "\n"),
+                \ 'cursor_pos': l:curpos,
+                \ 'msg_id': l:msg_id,
+                \ }
+    echomsg l:dict
+    if exists('b:jupyterkernel_ch')
+        let l:ch = b:jupyterkernel_ch
+    else
+        let l:ch = g:jupyterkernel_ch
+    endif
+    call ch_sendraw(l:ch,
+                \  json_encode(l:dict) . '@@@'
+                \ )
+
+    return v:none
 endfunction
 
 function! s:issue_msg_id() abort
