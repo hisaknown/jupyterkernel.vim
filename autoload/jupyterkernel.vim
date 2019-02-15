@@ -412,7 +412,6 @@ function! jupyterkernel#complete(findstart, base) abort
                 \ 'cursor_pos': l:curpos,
                 \ 'msg_id': l:msg_id,
                 \ }
-    echomsg l:dict
     if exists('b:jupyterkernel_ch')
         let l:ch = b:jupyterkernel_ch
     else
