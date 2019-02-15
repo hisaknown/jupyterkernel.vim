@@ -26,13 +26,14 @@ function! s:connect(args) abort
         " Check args
         let l:args = split(a:args)
         let l:bufnr = v:null
+        let l:kernelspec = {}
         for l:a in l:args
             if stridx(l:a, ':') != -1 " Is address:port?
                 let l:address_port = l:a
                 call jupyterkernel#start_jkg(l:a)
                 let l:bufnr = bufnr('%')
             else
-                let l:kernel = l:a
+                let l:kernelspec['kernel'] = l:a
             endif
         endfor
 
@@ -45,7 +46,7 @@ function! s:connect(args) abort
 
         " Start kernel
         if exists('l:kernel')
-            call timer_start(50, {timer -> s:start_kernel(timer, l:bufnr, l:kernel)}, {'repeat': -1})
+            call timer_start(50, {timer -> s:start_kernel(timer, l:bufnr, l:kernelspec)}, {'repeat': -1})
         else
             call timer_start(50, {timer -> s:start_kernel(timer, l:bufnr)}, {'repeat': -1})
         endif

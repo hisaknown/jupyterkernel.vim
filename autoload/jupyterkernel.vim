@@ -99,7 +99,7 @@ function! s:handle_result(ch, msg) abort
                 " Restore cursor position
                 call cursor(l:curpos[1:])
                 call execute(l:former_bufnr . 'buffer')
-            elseif l:msg_dict['msg_type'] == 'stream'
+            elseif l:msg_dict['msg_type'] == 'stream' || l:msg_dict['msg_type'] == 'error'
                 " Save current bufnr
                 let l:former_bufnr = bufnr('%')
                 " Open corresponding buffer temprorary
@@ -116,7 +116,11 @@ function! s:handle_result(ch, msg) abort
                     let l:append_flag = v:true
                 endif
                 " Extract output
-                let l:output = l:msg_dict['content']['text']
+                if l:msg_dict['msg_type'] == 'stream'
+                    let l:output = l:msg_dict['content']['text']
+                elseif l:msg_dict['msg_type'] == 'error'
+                    let l:output = l:msg_dict['content']['traceback']
+                endif
                 " Add code fence
                 if type(l:output) == v:t_string
                     let l:output = [l:output]

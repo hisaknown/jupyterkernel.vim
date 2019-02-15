@@ -19,6 +19,7 @@ import threading
 from pprint import pprint
 import psutil
 from time import sleep
+import itertools
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -164,6 +165,7 @@ class KernelHandler(threading.Thread):
         # Connect websocket
         while 1:
             try:
+                # Sometimes it takes a long time to get websocket...
                 ws_req = HTTPRequest(
                     url='{}/api/kernels/{}/channels'.format(
                         self.base_ws_url,
@@ -171,11 +173,13 @@ class KernelHandler(threading.Thread):
                     ),
                     auth_username='fakeuser',
                     auth_password='fakepass',
-                    request_timeout=5,
+                    connect_timeout=1,
+                    request_timeout=20,
                 )
                 self.ws = yield websocket_connect(ws_req)
                 break
             except HTTPTimeoutError:
+                logger.debug('Connecttion to kernel {} websocket timed out. Retrying.'.format(self.kernel_id))
                 pass
         logger.debug('Connected to kernel {} websocket'.format(self.kernel_id))
         # Notify vim that kernel is ready
@@ -224,6 +228,13 @@ class KernelHandler(threading.Thread):
                 if len(split_str) == 1:
                     split_str = split_str[0]
                 msg_dict[k] = split_str
+            elif type(msg_dict[k]) is list:
+                if all([type(i) is str for i in msg_dict[k]]):
+                    msg_dict[k] = list(
+                        itertools.chain.from_iterable(
+                            [s.splitlines() for s in msg_dict[k]]
+                        )
+                    )
             elif type(msg_dict[k]) is dict:
                 KernelHandler.split_by_nl(msg_dict[k])
 
