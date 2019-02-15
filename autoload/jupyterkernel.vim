@@ -66,7 +66,7 @@ function! s:handle_result(ch, msg) abort
             let l:msg_dict = json_decode(l:msg)
             " Temporary extract state info
             let l:temp_state = getbufvar(l:msg_dict['bufnr'], 'jupyterkernel_status')
-            if l:msg_dict['msg_type'] == 'execute_result'
+            if index(['execute_result', 'stream', 'error'], l:msg_dict['msg_type']) != -1
                 " Save current bufnr
                 let l:former_bufnr = bufnr('%')
                 " Open corresponding buffer temprorary
@@ -82,57 +82,24 @@ function! s:handle_result(ch, msg) abort
                     let l:code_end_line = search('```\n\_.\{-1,}```', 'nWe')
                 endif
                 " Extract output
-                let l:output = l:msg_dict['content']['data']['text/plain']
+                if l:msg_dict['msg_type'] == 'execute_result'
+                    let l:output = l:msg_dict['content']['data']['text/plain']
+                else
+                    let l:output = l:msg_dict['content']['text']
+                endif
                 " Add code fence
                 if type(l:output) == v:t_string
                     let l:output = [l:output]
                 endif
                 let l:output = insert(l:output, '```')
-                let l:output = insert(l:output, 'Out [' . l:msg_dict['content']['execution_count'] . ']:')
+                if l:msg_dict['msg_type'] == 'execute_result'
+                    let l:output = insert(l:output, 'Out [' . l:msg_dict['content']['execution_count'] . ']:')
+                endif
                 let l:output = add(l:output, '```')
                 " Put output
                 call append(
                             \ l:code_end_line,
                             \ l:output,
-                            \ )
-
-                " Restore cursor position
-                call cursor(l:curpos[1:])
-                call execute(l:former_bufnr . 'buffer')
-            elseif l:msg_dict['msg_type'] == 'stream' || l:msg_dict['msg_type'] == 'error'
-                " Save current bufnr
-                let l:former_bufnr = bufnr('%')
-                " Open corresponding buffer temprorary
-                call execute(l:msg_dict['bufnr'] . 'buffer')
-                " Save curresponding buffer position
-                let l:curpos = getcurpos()
-
-                " Find corresponding line (or cell)
-                let l:code_end_line = search('<!--.*' . json_encode({'msg_id': l:msg_dict['parent_header']['msg_id']})[1:-2] . '.*-->\n```.\+\n\_.\{-1,}```', 'nwe')
-                " Check if stream code already exists
-                if getline(l:code_end_line + 1) == '```'
-                    call cursor(l:code_end_line + 1, 1)
-                    let l:code_end_line = search('```\n\_.\{-1,}```', 'nWe') - 1
-                    let l:append_flag = v:true
-                endif
-                " Extract output
-                if l:msg_dict['msg_type'] == 'stream'
-                    let l:output = l:msg_dict['content']['text']
-                elseif l:msg_dict['msg_type'] == 'error'
-                    let l:output = l:msg_dict['content']['traceback']
-                endif
-                " Add code fence
-                if type(l:output) == v:t_string
-                    let l:output = [l:output]
-                endif
-                if !exists('l:append_flag')
-                    let l:output = insert(l:output, '```')
-                    let l:output = add(l:output, '```')
-                endif
-                " Put output
-                call append(
-                            \ l:code_end_line,
-                            \ l:output
                             \ )
 
                 " Restore cursor position
