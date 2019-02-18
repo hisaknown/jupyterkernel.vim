@@ -126,12 +126,6 @@ function! s:handle_result(ch, msg) abort
                 " Save kernel id
                 call setbufvar(l:msg_dict['bufnr'], 'jupyterkernel_kernel_id', l:msg_dict['kernel_id'])
             elseif l:msg_dict['msg_type'] == 'complete_reply'
-                " Find the head of the current word
-                let l:line = getline('.')
-                let l:start = col('.') - 1
-                while l:start > 0 && l:line[l:start - 1] =~ '\a'
-                    let l:start -= 1
-                endwhile
                 " Set completion candidates
                 let l:candidates = []
                 for l:i in range(len(l:msg_dict['content']['matches']))
@@ -140,7 +134,7 @@ function! s:handle_result(ch, msg) abort
                                 \ 'menu': l:msg_dict['content']['metadata']['_jupyter_types_experimental'][i]['type']})
                 endfor
                 if !complete_check() && mode() == 'i'
-                    call complete(l:start + 1, l:candidates)
+                    call complete(l:msg_dict['content']['cursor_start'] - s:complete_offset + 1, l:candidates)
                 endif
             endif
             " Apply state info
@@ -370,6 +364,7 @@ function! jupyterkernel#complete(findstart, base) abort
     for l:s in l:matched_text[1:(line('.') - l:line_start - 1)]
         let l:curpos += strlen(l:s) + 1
     endfor
+    let s:complete_offset = l:curpos
     let l:curpos += col('.') - 1
 
     let l:dict = {
