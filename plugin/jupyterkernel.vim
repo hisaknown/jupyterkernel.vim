@@ -51,6 +51,12 @@ function! s:connect(args) abort
             call timer_start(50, {timer -> s:start_kernel(timer, l:bufnr)}, {'repeat': -1})
         endif
     endif
+
+    " Set status
+    let b:jupyterkernel_status = {
+                \ 'kernel_state': 'Starting',
+                \ }
+    call jupyterkernel#set_winbar_status(bufnr('%'))
 endfunction
 
 function! s:start_kernel(timer, bufnr, ...)

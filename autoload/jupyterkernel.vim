@@ -139,7 +139,7 @@ function! s:handle_result(ch, msg) abort
             endif
             " Apply state info
             call setbufvar(l:msg_dict['bufnr'], 'jupyterkernel_status', temp_state)
-            call s:set_winbar_status(l:msg_dict['bufnr'])
+            call jupyterkernel#set_winbar_status(l:msg_dict['bufnr'])
         endfor
     finally
         " Restore eventignore
@@ -192,7 +192,7 @@ function! jupyterkernel#connect_kernel(...) abort
     let b:jupyterkernel_status = {
                 \ 'kernel_state': 'busy',
                 \ }
-    call s:set_winbar_status(bufnr('%'))
+    call jupyterkernel#set_winbar_status(bufnr('%'))
     " Mapping
     nnoremap <buffer><silent> <S-Return> :<C-u>call jupyterkernel#send_inside_codefence()<CR>
 
@@ -228,7 +228,7 @@ function! jupyterkernel#kill_kernel(...) abort
                 \ )
 endfunction
 
-function! s:set_winbar_status(bufnr) abort
+function! jupyterkernel#set_winbar_status(bufnr) abort
     let l:str = 'Jupyter/'
     let l:status = getbufvar(a:bufnr, 'jupyterkernel_status')
 
