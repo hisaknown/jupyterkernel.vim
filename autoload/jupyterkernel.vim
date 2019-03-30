@@ -84,6 +84,8 @@ function! s:handle_result(ch, msg) abort
                 " Extract output
                 if l:msg_dict['msg_type'] == 'execute_result'
                     let l:output = l:msg_dict['content']['data']['text/plain']
+                elseif l:msg_dict['msg_type'] == 'error'
+                    let l:output = insert(l:msg_dict['content']['traceback'], l:msg_dict['content']['ename'])
                 else
                     let l:output = l:msg_dict['content']['text']
                 endif

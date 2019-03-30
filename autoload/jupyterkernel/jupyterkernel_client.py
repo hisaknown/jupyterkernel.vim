@@ -20,10 +20,14 @@ from pprint import pprint
 import psutil
 from time import sleep
 import itertools
+import re
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+def remove_color(s):
+    escape_codes = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+    return escape_codes.sub('', s)
 
 class JupyterKernelGatewayHandler(threading.Thread):
     def __init__(self, args):
@@ -207,6 +211,8 @@ class KernelHandler(threading.Thread):
             msg_type = msg['msg_type']
             print('Received message type:', msg_type)
             pprint(msg)
+            if msg_type == 'error':
+                msg['content']['traceback'] = list(map(remove_color, msg['content']['traceback']))
             msg = (json_encode(msg) + '@@@').encode('utf-8')
             # Send result to vim
             self.vim_messenger.ioloop.add_callback(
