@@ -4,15 +4,13 @@ from tornado import gen
 from tornado.escape import json_encode, json_decode, url_escape
 from tornado.websocket import websocket_connect
 from tornado.ioloop import IOLoop
-from tornado.httpclient import HTTPClient, AsyncHTTPClient, HTTPRequest
+from tornado.httpclient import HTTPClient, HTTPRequest
 from tornado.simple_httpclient import HTTPTimeoutError
 from tornado.tcpserver import TCPServer
 from tornado.iostream import StreamClosedError
-from uuid import uuid4
 
 import tornado.netutil
 
-import sys
 import argparse
 import logging
 import subprocess
@@ -26,9 +24,11 @@ import re
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+
 def remove_color(s):
     escape_codes = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return escape_codes.sub('', s)
+
 
 class JupyterKernelGatewayHandler(threading.Thread):
     def __init__(self, args):
@@ -327,7 +327,6 @@ class VimMessenger(threading.Thread):
                         )
                 except StreamClosedError:
                     break
-
 
     def __init__(self, args):
         threading.Thread.__init__(
