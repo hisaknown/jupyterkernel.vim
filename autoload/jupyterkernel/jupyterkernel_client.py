@@ -1,4 +1,5 @@
 import os
+import tornado
 from tornado import gen
 from tornado.escape import json_encode, json_decode, url_escape
 from tornado.websocket import websocket_connect
@@ -215,14 +216,17 @@ class KernelHandler(threading.Thread):
                 msg['content']['traceback'] = list(map(remove_color, msg['content']['traceback']))
             msg = (json_encode(msg) + '@@@').encode('utf-8')
             # Send result to vim
-            self.vim_messenger.ioloop.add_callback(
-                lambda: self.vim_messenger.tcp_server.stream.write(
-                    msg,
-                    lambda: self._write_completed.set()
+            if tornado.version_info[0] >= 6:
+                yield self.vim_messenger.tcp_server.stream.write(msg)
+            else:
+                self.vim_messenger.ioloop.add_callback(
+                    lambda: self.vim_messenger.tcp_server.stream.write(
+                        msg,
+                        lambda: self._write_completed.set()
+                    )
                 )
-            )
-            self._write_completed.wait()
-            self._write_completed.clear()
+                self._write_completed.wait()
+                self._write_completed.clear()
 
         self.ws.close()
         logger.debug('Closed kernel {} websocket'.format(self.kernel_id))
