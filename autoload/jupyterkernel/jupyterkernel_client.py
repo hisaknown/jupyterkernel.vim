@@ -43,10 +43,10 @@ class JupyterKernelGatewayHandler(threading.Thread):
 
     def run(self):
         # Start Jupyter if the port is not specified
-        if (self._args.jupyter_port is None
+        if (not self._args.jupyter_port
                 and self._args.jupyter_address in ['localhost', '127.0.0.1']):
             for s in tornado.netutil.bind_sockets(0):
-                if self._args.jupyter_port is None:
+                if not self._args.jupyter_port:
                     self._args.jupyter_port = s.getsockname()[1]
                 s.close()
             logger.debug('Port {} found for Jupyter'.format(self._args.jupyter_port))
@@ -351,7 +351,7 @@ class VimMessenger(threading.Thread):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--jupyter_port', default=None, type=int,
+        '--jupyter_port', default=0, type=int,
         help=('Port of Jupyter. If not specified, Jupyter kernel gateway '
               'will be launched with a random port.')
     )

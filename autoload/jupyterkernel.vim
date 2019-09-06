@@ -13,40 +13,51 @@ let s:script_dir = expand('<sfile>:p:h')
 let s:jupyterkernel_msg_id = 0
 let s:jupyterkernel_buffer = ''
 
-function! jupyterkernel#start_jkg(...) abort
-    " Args: address_port
-    if a:0 == 0
-        " Make VimMessenger process
-        if (g:jupyterkernel_address == 'localhost' || g:jupyterkernel_address == '127.0.0.1') && g:jupyterkernel_port == 0
-            call execute('pyx ' .
-                        \ 'from __future__ import print_function;' .
-                        \ 'import socket;' .
-                        \ 's = socket.socket();' .
-                        \ 's.bind(("' . g:jupyterkernel_address . '", ' . g:jupyterkernel_port . '));' .
-                        \ 'vim.vars["jupyterkernel_port"] = s.getsockname()[1];' .
-                        \ 's.close()'
-                        \ )
+" Contains address for jkg, port for jkg, job, and port for client.
+let g:jupyterkernel#jkg_list = []
+
+function! jupyterkernel#start_jkg(address, port) abort
+    for l:jkg in g:jupyterkernel#jkg_list
+        if l:jkg['port'] == a:port && l:jkg['address'] == a:address
+            echo 'Already connected to Jupyter Kernel Gateway at ' . a:address . ':' . (a:port ? a:port : '0 (auto-allocated)')
+            let b:jupyterkernel_ch = l:jkg['ch']
+            return
         endif
-        if !exists('g:jupyterkernel_job') || job_status(g:jupyterkernel_job) != 'run'
-            let g:jupyterkernel_job = job_start(
-                        \ 'python ' . s:script_dir . '/jupyterkernel/jupyterkernel_client.py ' . 
-                        \ '--vim_port ' . g:jupyterkernel_port
-                        \ )
-            " Connect to VimMessenger
-            call timer_start(200, {timer -> jupyterkernel#connect_messenger(timer, g:jupyterkernel_address, g:jupyterkernel_port, bufnr('%'))}, {'repeat': -1})
-        endif
+    endfor
+
+    if g:jupyterkernel#_client_port
+        echomsg 'Connecting to client of jupyterkernel.vim at port ' . g:jupyterkernel#_client_port . '. This shuld be used only for debugging.'
+        let g:jupyterkernel#_allocated_client_port = g:jupyterkernel#_client_port
+        let l:jkg_job = v:none
     else
-        if exists('b:jupyterkernel_ch') 
-            if ch_status(b:jupyterkernel_ch) != 'closed' && ch_status(b:jupyterkernel_ch) != 'fail'
-                call ch_close(b:jupyterkernel_ch)
-            endif
-            unlet b:jupyterkernel_ch
+        " Create Jupyter Kernel Gateway client process
+        call execute('pyx ' .
+                    \ 'from __future__ import print_function;' .
+                    \ 'import socket;' .
+                    \ 's = socket.socket();' .
+                    \ 's.bind(("localhost", ' . g:jupyterkernel#_client_port . '));' .
+                    \ 'vim.vars["jupyterkernel#_allocated_client_port"] = s.getsockname()[1];' .
+                    \ 's.close()'
+                    \ )
+
+        if a:port == 0
+            echo 'Port 0 is specified. Creating new Jupyter Kernel Gateway on localhost...'
         endif
-        let l:address = split(a:1, ':')[0]
-        let l:port = split(a:1, ':')[1]
-        " Connect to VimMessenger
-        call timer_start(200, {timer -> jupyterkernel#connect_messenger(timer, l:address, l:port, bufnr('%'))}, {'repeat': -1})
+
+        let l:jkg_job = job_start(
+                            \ 'python ' . s:script_dir . '/jupyterkernel/jupyterkernel_client.py' . 
+                            \ ' --vim_port ' . g:jupyterkernel#_allocated_client_port .
+                            \ ' --jupyter_address ' . a:address .
+                            \ ' --jupyter_port ' . a:port
+                            \ )
     endif
+
+    call add(g:jupyterkernel#jkg_list, {'job': l:jkg_job,
+                \ 'port': a:port,
+                \ 'address': a:address,
+                \ 'client_port': g:jupyterkernel#_allocated_client_port})
+
+    call timer_start(200, {timer -> jupyterkernel#connect_to_client(timer, g:jupyterkernel#_allocated_client_port, bufnr('%'))}, {'repeat': -1})
 endfunction
 
 function! s:handle_result(ch, msg) abort
@@ -80,6 +91,10 @@ function! s:handle_result(ch, msg) abort
                 if getline(l:code_end_line + 1) == '```'
                     call cursor(l:code_end_line + 1, 1)
                     let l:code_end_line = search('```\n\_.\{-1,}```', 'nWe')
+                    if l:msg_dict['msg_type'] == 'stream'
+                        let l:code_end_line -= 1
+                        let l:add_to_stream = 1
+                    endif
                 endif
                 " Extract output
                 if l:msg_dict['msg_type'] == 'execute_result'
@@ -90,14 +105,16 @@ function! s:handle_result(ch, msg) abort
                     let l:output = l:msg_dict['content']['text']
                 endif
                 " Add code fence
-                if type(l:output) == v:t_string
-                    let l:output = [l:output]
+                if !exists('l:add_to_stream')
+                    if type(l:output) == v:t_string
+                        let l:output = [l:output]
+                    endif
+                    let l:output = insert(l:output, '```')
+                    if l:msg_dict['msg_type'] == 'execute_result'
+                        let l:output = insert(l:output, 'Out [' . l:msg_dict['content']['execution_count'] . ']:')
+                    endif
+                    let l:output = add(l:output, '```')
                 endif
-                let l:output = insert(l:output, '```')
-                if l:msg_dict['msg_type'] == 'execute_result'
-                    let l:output = insert(l:output, 'Out [' . l:msg_dict['content']['execution_count'] . ']:')
-                endif
-                let l:output = add(l:output, '```')
                 " Put output
                 call append(
                             \ l:code_end_line,
@@ -149,18 +166,20 @@ function! s:handle_result(ch, msg) abort
     endtry
 endfunction
 
-function! jupyterkernel#connect_messenger(timer, address, port, bufnr) abort
+function! jupyterkernel#connect_to_client(timer, client_port, bufnr) abort
     let l:ch = ch_open(
-                \ a:address . ':' .  a:port,
+                \ 'localhost:' .  a:client_port,
                 \ {'mode': 'raw', 'callback': function('s:handle_result')},
                 \ )
     if ch_status(l:ch) == 'open'
         call timer_stop(a:timer)
-        if a:address != g:jupyterkernel_address || a:port != g:jupyterkernel_port
+
+        for l:jkg in g:jupyterkernel#jkg_list
+            if l:jkg['client_port'] == a:client_port
+                let l:jkg['ch'] = l:ch
+            endif
             call setbufvar(a:bufnr, 'jupyterkernel_ch', l:ch)
-        else
-            let g:jupyterkernel_ch = l:ch
-        endif
+        endfor
     endif
 endfunction
 
@@ -180,13 +199,8 @@ function! jupyterkernel#connect_kernel(...) abort
         endif
     endif
 
-    if exists('b:jupyterkernel_ch')
-        let l:ch = b:jupyterkernel_ch
-    else
-        let l:ch = g:jupyterkernel_ch
-    endif
     call ch_sendraw(
-                \ l:ch,
+                \ b:jupyterkernel_ch,
                 \ json_encode(l:dict) . '@@@',
                 \ )
 
@@ -219,11 +233,8 @@ function! jupyterkernel#kill_kernel(...) abort
         let l:bufnr = bufnr('%')
     endif
 
-    if type(getbufvar(l:bufnr, 'jupyterkernel_ch')) == v:t_channel
-        let l:ch = getbufvar(l:bufnr, 'jupyterkernel_ch')
-    else
-        let l:ch = g:jupyterkernel_ch
-    endif
+    let l:ch = getbufvar(l:bufnr, 'jupyterkernel_ch')
+
     call ch_sendraw(
                 \ l:ch,
                 \ json_encode(l:dict) . '@@@',
@@ -335,12 +346,8 @@ function! jupyterkernel#send_inside_codefence() abort
                 \ 'code': join(l:matched_text[1:-2], "\n"),
                 \ 'msg_id': l:msg_id,
                 \ }
-    if exists('b:jupyterkernel_ch')
-        let l:ch = b:jupyterkernel_ch
-    else
-        let l:ch = g:jupyterkernel_ch
-    endif
-    call ch_sendraw(l:ch,
+
+    call ch_sendraw(b:jupyterkernel_ch,
                 \  json_encode(l:dict) . '@@@'
                 \ )
 endfunction
@@ -376,12 +383,8 @@ function! jupyterkernel#complete(findstart, base) abort
                 \ 'cursor_pos': l:curpos,
                 \ 'msg_id': l:msg_id,
                 \ }
-    if exists('b:jupyterkernel_ch')
-        let l:ch = b:jupyterkernel_ch
-    else
-        let l:ch = g:jupyterkernel_ch
-    endif
-    call ch_sendraw(l:ch,
+
+    call ch_sendraw(b:jupyterkernel_ch,
                 \  json_encode(l:dict) . '@@@'
                 \ )
 
